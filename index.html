@@ -806,62 +806,160 @@
                     });
                 };
 
-                /* MOTOR DE SONIDOS */
-                window.playBeep = function(f, d, t, vol) {
-                    if (!window.globalAudioCtx) return;
+               /* MOTOR DE SONIDOS POTENCIADO (7 MODOS) */
+                function getMasterAudio() {
+                    if (!window.globalAudioCtx) return null;
+                    if (window.globalAudioCtx.state === 'suspended') {
+                        window.globalAudioCtx.resume();
+                    }
+                    if (!window.masterCompressor) {
+                        var comp = window.globalAudioCtx.createDynamicsCompressor();
+                        comp.threshold.value = -6;
+                        comp.knee.value = 10;
+                        comp.ratio.value = 8;
+                        comp.attack.value = 0.002;
+                        comp.release.value = 0.15;
+                        comp.connect(window.globalAudioCtx.destination);
+                        window.masterCompressor = comp;
+                    }
+                    return window.masterCompressor;
+                }
+
+                window.playBeep = function(f, d, t, vol, delay) {
+                    var dest = getMasterAudio();
+                    if (!dest) return;
                     try {
-                        if (window.globalAudioCtx.state === 'suspended') window.globalAudioCtx.resume();
-                        var o = window.globalAudioCtx.createOscillator();
-                        var g = window.globalAudioCtx.createGain();
-                        o.type = t || 'sine';
-                        o.frequency.value = f;
-                        g.gain.setValueAtTime(vol || 0.5, window.globalAudioCtx.currentTime);
-                        g.gain.exponentialRampToValueAtTime(0.01, window.globalAudioCtx.currentTime + d);
+                        var ctx = window.globalAudioCtx;
+                        var t0 = ctx.currentTime + (delay || 0);
+                        var o = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        var v = (typeof vol === 'number') ? vol : 0.95;
+
+                        o.type = t || 'square';
+                        o.frequency.setValueAtTime(f, t0);
+
+                        g.gain.setValueAtTime(0.001, t0);
+                        g.gain.linearRampToValueAtTime(v, t0 + 0.01);
+                        if (d > 0.04) {
+                            g.gain.setValueAtTime(v, t0 + d - 0.025);
+                        }
+                        g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+
                         o.connect(g);
-                        g.connect(window.globalAudioCtx.destination);
-                        o.start();
-                        o.stop(window.globalAudioCtx.currentTime + d);
+                        g.connect(dest);
+                        o.start(t0);
+                        o.stop(t0 + d + 0.01);
                     } catch (e) {}
                 };
+
+                function tonoClasico(dur, delay) {
+                    playBeep(880, dur, 'square', 1.0, delay);
+                    playBeep(440, dur, 'triangle', 0.45, delay);
+                }
+
+                function tocarCampana(delay) {
+                    var d = delay || 0;
+                    var armonicos = [587.33, 880, 1318.5, 1760, 2349];
+                    armonicos.forEach(function(freq, idx) {
+                        playBeep(freq, 1.7 - (idx * 0.2), 'sine', 0.85 / (idx + 1), d);
+                    });
+                }
+
+                function tocarSilbato(dur, delay) {
+                    var dest = getMasterAudio();
+                    if (!dest) return;
+                    try {
+                        var ctx = window.globalAudioCtx;
+                        var t0 = ctx.currentTime + (delay || 0);
+                        var osc = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
+                        var g = ctx.createGain();
+
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(2850, t0);
+
+                        lfo.type = 'sine';
+                        lfo.frequency.setValueAtTime(38, t0);
+                        lfoGain.gain.setValueAtTime(140, t0);
+
+                        g.gain.setValueAtTime(0.001, t0);
+                        g.gain.linearRampToValueAtTime(0.95, t0 + 0.02);
+                        g.gain.setValueAtTime(0.95, t0 + dur - 0.03);
+                        g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(osc.frequency);
+                        osc.connect(g);
+                        g.connect(dest);
+
+                        lfo.start(t0);
+                        osc.start(t0);
+                        lfo.stop(t0 + dur + 0.01);
+                        osc.stop(t0 + dur + 0.01);
+                    } catch (e) {}
+                }
+
+                function tocarGong(dur, delay) {
+                    var d = delay || 0;
+                    playBeep(98, dur, 'sine', 1.0, d);
+                    playBeep(147, dur * 0.85, 'triangle', 0.65, d);
+                    playBeep(220, dur * 0.6, 'sine', 0.4, d);
+                }
 
                 window.sonidoStart = function() {
                     var tipo = gymConfig.sonido || 'clasico';
                     if (tipo === 'campana') {
-                        tocarCampana();
+                        tocarCampana(0);
                     } else if (tipo === 'bocina') {
-                        playBeep(180, 0.4, 'sawtooth', 0.6);
+                        playBeep(150, 0.45, 'sawtooth', 1.0, 0);
+                        playBeep(156, 0.45, 'sawtooth', 1.0, 0);
+                    } else if (tipo === 'silbato') {
+                        tocarSilbato(0.35, 0);
+                    } else if (tipo === 'gong') {
+                        tocarGong(1.3, 0);
+                    } else if (tipo === 'crossfit') {
+                        playBeep(2000, 0.25, 'square', 1.0, 0);
+                    } else if (tipo === 'radar') {
+                        playBeep(660, 0.14, 'triangle', 0.95, 0);
+                        playBeep(880, 0.22, 'triangle', 1.0, 0.16);
                     } else {
-                        playBeep(600, 0.15, 'sine', 0.5);
+                        // CLASICO: be - beep potente
+                        tonoClasico(0.14, 0);
+                        tonoClasico(0.32, 0.22);
                     }
                 };
 
                 window.sonidoFinalRonda = function() {
                     var tipo = gymConfig.sonido || 'clasico';
                     if (tipo === 'bocina') {
-                        playBeep(145, 1.4, 'sawtooth', 0.7);
-                        playBeep(152, 1.4, 'sawtooth', 0.7);
+                        playBeep(145, 1.5, 'sawtooth', 1.0, 0);
+                        playBeep(151, 1.5, 'sawtooth', 1.0, 0);
+                        playBeep(290, 1.5, 'square', 0.45, 0);
                     } else if (tipo === 'campana') {
-                        tocarCampana();
-                        setTimeout(tocarCampana, 350);
+                        tocarCampana(0);
+                        tocarCampana(0.32);
+                        tocarCampana(0.64);
+                    } else if (tipo === 'silbato') {
+                        tocarSilbato(1.25, 0);
+                    } else if (tipo === 'gong') {
+                        tocarGong(2.2, 0);
+                    } else if (tipo === 'crossfit') {
+                        playBeep(2000, 0.12, 'square', 1.0, 0);
+                        playBeep(2000, 0.12, 'square', 1.0, 0.20);
+                        playBeep(2000, 0.12, 'square', 1.0, 0.40);
+                        playBeep(2000, 0.95, 'square', 1.0, 0.60);
+                    } else if (tipo === 'radar') {
+                        playBeep(660, 0.18, 'triangle', 0.95, 0);
+                        playBeep(880, 0.18, 'triangle', 0.95, 0.22);
+                        playBeep(1175, 0.85, 'triangle', 1.0, 0.44);
                     } else {
-                        playBeep(800, 0.3, 'square', 0.5);
-                        setTimeout(function() { playBeep(800, 0.3, 'square', 0.5); }, 400);
-                        setTimeout(function() { playBeep(800, 1.2, 'square', 0.5); }, 800);
+                        // CLASICO: be - be - beeeeep
+                        tonoClasico(0.18, 0);
+                        tonoClasico(0.18, 0.28);
+                        tonoClasico(1.10, 0.56);
                     }
                 };
-
-                function tocarCampana() {
-                    if (!window.globalAudioCtx) return;
-                    var armonicos = [587.33, 880, 1318.5, 1760];
-                    armonicos.forEach(function(freq, idx) {
-                        playBeep(freq, 1.6 - (idx * 0.2), 'sine', 0.4 / (idx + 1));
-                    });
-                }
-
-            } catch (e) {
-                console.error("Error iniciando Firebase:", e);
-            }
-        }
     </script>
 </body>
 </html>
