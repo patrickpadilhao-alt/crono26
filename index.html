@@ -234,8 +234,11 @@
                     window.globalAudioCtx.resume();
                 }
                 var o = window.globalAudioCtx.createOscillator();
-                o.connect(window.globalAudioCtx.destination);
-                o.start(); o.stop(window.globalAudioCtx.currentTime + 0.01);
+                var g = window.globalAudioCtx.createGain();
+                g.gain.value = 0.001;
+                o.connect(g);
+                g.connect(window.globalAudioCtx.destination);
+                o.start(); o.stop(window.globalAudioCtx.currentTime + 0.02);
             } catch(e) {}
         }
         function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -436,7 +439,7 @@
                     fondoDescanso: "#800000",
                     textoDescanso: "#ffffff"
                 },
-                sonido: "clasico",
+                sonido: "campana",
                 segundosAviso: 10,
                 textos: {
                     listo: "PREPARADOS",
@@ -575,6 +578,7 @@
 
                 var serverOffset = 0;
                 var lastPhase = '';
+                var lastEstado = '';
                 var localInterval = null;
                 var lastBeepedSec = -1;
                 var configCargadaEnInputs = false;
@@ -687,13 +691,20 @@
 
                     var sinSonido = (data.viewMode === 'clock' || data.viewMode === 'photo');
 
+                    // Sonido en la tele cuando cambia de ronda (lucha <-> descanso)
                     if (lastPhase !== '' && lastPhase !== data.fase) {
                         lastBeepedSec = -1;
                         if (!isAdmin && data.estado === 'run' && !sinSonido) {
                             sonidoFinalRonda();
                         }
+                    } else if (!isAdmin && !sinSonido && data.estado === 'run' && lastEstado !== '' && lastEstado !== 'run') {
+                        // Sonido en la tele cuando se pulsa START desde parado/pausa
+                        lastBeepedSec = -1;
+                        sonidoStart();
                     }
+
                     lastPhase = data.fase;
+                    lastEstado = data.estado;
 
                     var segAviso = (typeof gymConfig.segundosAviso === 'number') ? gymConfig.segundosAviso : 10;
 
@@ -710,7 +721,7 @@
                                 if (remaining <= segAviso && remaining > 0) {
                                     var cs = Math.ceil(remaining);
                                     if (cs !== lastBeepedSec) {
-                                        playBeep(520, 0.1, 'sine');
+                                        sonidoAviso();
                                         lastBeepedSec = cs;
                                     }
                                 }
@@ -806,7 +817,9 @@
                     });
                 };
 
-                /* MOTOR DE SONIDOS AGRESIVO (ALTA POTENCIA TV - 7 MODOS) */
+                /* =====================================================================
+                   MOTOR DE SONIDO LIMPIO Y DE ALTA PROYECCIÓN (7 MODOS)
+                   ===================================================================== */
                 function getMasterAudio() {
                     if (!window.globalAudioCtx) return null;
                     if (window.globalAudioCtx.state === 'suspended') {
@@ -815,48 +828,40 @@
                     if (!window.masterInputNode) {
                         var ctx = window.globalAudioCtx;
 
-                        // 1. Saturador (aumenta la agresividad y el volumen percibido)
-                        var shaper = ctx.createWaveShaper();
-                        var k = 28;
-                        var nSamples = 44100;
-                        var curve = new Float32Array(nSamples);
-                        var deg = Math.PI / 180;
-                        for (var i = 0; i < nSamples; ++i) {
-                            var x = i * 2 / nSamples - 1;
-                            curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
-                        }
-                        shaper.curve = curve;
-                        shaper.oversample = '2x';
+                        // Filtro pasa-altos suave para que los altavoces de la TV no vibren ni pierdan fuerza
+                        var hp = ctx.createBiquadFilter();
+                        hp.type = 'highpass';
+                        hp.frequency.value = 150;
 
-                        // 2. Realce de frecuencias medias-agudas (corta el ruido del gimnasio en TVs)
-                        var presence = ctx.createBiquadFilter();
-                        presence.type = 'peaking';
-                        presence.frequency.value = 1850;
-                        presence.Q.value = 1.1;
-                        presence.gain.value = 7.5;
+                        // Realce en la zona de máxima claridad del oído humano (2.5 kHz) para cortar música y voces
+                        var clarity = ctx.createBiquadFilter();
+                        clarity.type = 'peaking';
+                        clarity.frequency.value = 2500;
+                        clarity.Q.value = 0.85;
+                        clarity.gain.value = 7.5;
 
-                        // 3. Limitador máximo sin distorsión digital
+                        // Compresor + ganancia limpia al máximo sin distorsionar
                         var comp = ctx.createDynamicsCompressor();
-                        comp.threshold.value = -10;
-                        comp.knee.value = 6;
-                        comp.ratio.value = 14;
-                        comp.attack.value = 0.001;
-                        comp.release.value = 0.1;
+                        comp.threshold.value = -16;
+                        comp.knee.value = 4;
+                        comp.ratio.value = 12;
+                        comp.attack.value = 0.002;
+                        comp.release.value = 0.08;
 
-                        var masterGain = ctx.createGain();
-                        masterGain.gain.value = 1.0;
+                        var boost = ctx.createGain();
+                        boost.gain.value = 1.45;
 
-                        shaper.connect(presence);
-                        presence.connect(comp);
-                        comp.connect(masterGain);
-                        masterGain.connect(ctx.destination);
+                        hp.connect(clarity);
+                        clarity.connect(comp);
+                        comp.connect(boost);
+                        boost.connect(ctx.destination);
 
-                        window.masterInputNode = shaper;
+                        window.masterInputNode = hp;
                     }
                     return window.masterInputNode;
                 }
 
-                window.playBeep = function(f, d, t, vol, delay) {
+                window.playBeep = function(freq, dur, wave, vol, delay) {
                     var dest = getMasterAudio();
                     if (!dest) return;
                     try {
@@ -864,46 +869,57 @@
                         var t0 = ctx.currentTime + (delay || 0);
                         var o = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var v = (typeof vol === 'number') ? vol : 1.0;
+                        var v = (typeof vol === 'number') ? vol : 0.9;
 
-                        // Si se pide 'sine' (como en el aviso de 10s), lo convertimos a 'triangle' con cuerpo para que se oiga fuerte
-                        o.type = (t === 'sine') ? 'triangle' : (t || 'square');
-                        o.frequency.setValueAtTime(f, t0);
+                        o.type = wave || 'sine';
+                        o.frequency.setValueAtTime(freq, t0);
 
-                        g.gain.setValueAtTime(0.001, t0);
-                        g.gain.linearRampToValueAtTime(v, t0 + 0.006);
-                        if (d > 0.03) {
-                            g.gain.setValueAtTime(v, t0 + d - 0.02);
+                        g.gain.setValueAtTime(0.0001, t0);
+                        g.gain.linearRampToValueAtTime(v, t0 + 0.005);
+                        if (dur > 0.025) {
+                            g.gain.setValueAtTime(v, t0 + dur - 0.015);
                         }
-                        g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
                         o.connect(g);
                         g.connect(dest);
                         o.start(t0);
-                        o.stop(t0 + d + 0.01);
+                        o.stop(t0 + dur + 0.015);
                     } catch (e) {}
                 };
 
-                function tonoClasico(dur, delay) {
+                // Aviso de los últimos segundos (pitido corto limpio)
+                window.sonidoAviso = function() {
+                    playBeep(2100, 0.09, 'sine', 0.85, 0);
+                    playBeep(2100, 0.09, 'triangle', 0.35, 0);
+                };
+
+                // 1. CLASICO: El típico "pi - pi - piiiiii" limpio y penetrante de marcador electrónico
+                function pitidoClasico(dur, delay) {
                     var d = delay || 0;
-                    // Triple capa agresiva tipo marcador electrónico profesional
-                    playBeep(960, dur, 'square', 1.0, d);
-                    playBeep(972, dur, 'sawtooth', 0.85, d);
-                    playBeep(480, dur, 'square', 0.55, d);
+                    playBeep(2650, dur, 'sine', 0.95, d);
+                    playBeep(2650, dur, 'triangle', 0.40, d);
                 }
 
+                // 2. CAMPANA: Campana metálica real de ring de boxeo
                 function tocarCampana(delay) {
                     var d = delay || 0;
-                    // Golpe metálico inicial (martillo)
-                    playBeep(3200, 0.035, 'square', 1.0, d);
-                    playBeep(1450, 0.05, 'sawtooth', 0.9, d);
-                    // Resonancia metálica de campana de ring
-                    var armonicos = [587.33, 845, 1290, 1780, 2460];
-                    armonicos.forEach(function(freq, idx) {
-                        playBeep(freq, 1.75 - (idx * 0.22), 'triangle', 0.95 / (idx + 1), d);
-                    });
+                    // Golpe inicial del martillo
+                    playBeep(3520, 0.03, 'triangle', 0.95, d);
+                    // Armónicos metálicos limpios de campana
+                    var parciales = [
+                        { f: 880,  v: 0.95, t: 1.75 },
+                        { f: 1760, v: 0.70, t: 1.45 },
+                        { f: 2135, v: 0.60, t: 1.20 },
+                        { f: 2640, v: 0.50, t: 0.95 },
+                        { f: 3520, v: 0.35, t: 0.65 }
+                    ];
+                    for (var i = 0; i < parciales.length; i++) {
+                        playBeep(parciales[i].f, parciales[i].t, 'sine', parciales[i].v, d);
+                    }
                 }
 
+                // 3. SILBATO: Silbato de árbitro profesional (doble frecuencia + aire)
                 function tocarSilbato(dur, delay) {
                     var dest = getMasterAudio();
                     if (!dest) return;
@@ -911,79 +927,70 @@
                         var ctx = window.globalAudioCtx;
                         var t0 = ctx.currentTime + (delay || 0);
 
+                        // Dos cámaras del silbato que generan el trino metálico natural
                         var osc1 = ctx.createOscillator();
                         var osc2 = ctx.createOscillator();
-                        var lfo = ctx.createOscillator();
-                        var lfoGain = ctx.createGain();
                         var g = ctx.createGain();
 
-                        osc1.type = 'sawtooth';
-                        osc2.type = 'square';
+                        osc1.type = 'sine';
+                        osc2.type = 'triangle';
 
-                        // Barrido de ataque rápido al soplar
-                        osc1.frequency.setValueAtTime(2450, t0);
-                        osc1.frequency.linearRampToValueAtTime(2880, t0 + 0.035);
-                        osc2.frequency.setValueAtTime(2510, t0);
-                        osc2.frequency.linearRampToValueAtTime(2945, t0 + 0.035);
+                        osc1.frequency.setValueAtTime(2720, t0);
+                        osc1.frequency.linearRampToValueAtTime(2880, t0 + 0.03);
+                        osc2.frequency.setValueAtTime(2890, t0);
+                        osc2.frequency.linearRampToValueAtTime(3055, t0 + 0.03);
 
-                        // Bola interna vibrando rápido
-                        lfo.type = 'sine';
-                        lfo.frequency.setValueAtTime(44, t0);
-                        lfoGain.gain.setValueAtTime(175, t0);
-
-                        g.gain.setValueAtTime(0.001, t0);
-                        g.gain.linearRampToValueAtTime(1.0, t0 + 0.015);
-                        g.gain.setValueAtTime(1.0, t0 + dur - 0.025);
-                        g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-
-                        lfo.connect(lfoGain);
-                        lfoGain.connect(osc1.frequency);
-                        lfoGain.connect(osc2.frequency);
+                        g.gain.setValueAtTime(0.0001, t0);
+                        g.gain.linearRampToValueAtTime(0.95, t0 + 0.012);
+                        g.gain.setValueAtTime(0.95, t0 + dur - 0.02);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
                         osc1.connect(g);
                         osc2.connect(g);
                         g.connect(dest);
 
-                        lfo.start(t0);
                         osc1.start(t0);
                         osc2.start(t0);
+                        osc1.stop(t0 + dur + 0.015);
+                        osc2.stop(t0 + dur + 0.015);
 
-                        lfo.stop(t0 + dur + 0.01);
-                        osc1.stop(t0 + dur + 0.01);
-                        osc2.stop(t0 + dur + 0.01);
+                        // Soplo de aire filtrado para realismo
+                        var bufferSize = Math.floor(ctx.sampleRate * dur);
+                        var noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                        var output = noiseBuffer.getChannelData(0);
+                        for (var i = 0; i < bufferSize; i++) {
+                            output[i] = Math.random() * 2 - 1;
+                        }
+                        var whiteNoise = ctx.createBufferSource();
+                        whiteNoise.buffer = noiseBuffer;
+
+                        var filter = ctx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.value = 2900;
+                        filter.Q.value = 3.0;
+
+                        var noiseGain = ctx.createGain();
+                        noiseGain.gain.setValueAtTime(0.35, t0);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+
+                        whiteNoise.connect(filter);
+                        filter.connect(noiseGain);
+                        noiseGain.connect(dest);
+                        whiteNoise.start(t0);
                     } catch (e) {}
                 }
 
+                // 4. BOCINA: Bocina de pabellón / baloncesto / lucha
                 function tocarBocina(dur, delay) {
-                    var dest = getMasterAudio();
-                    if (!dest) return;
-                    try {
-                        var ctx = window.globalAudioCtx;
-                        var t0 = ctx.currentTime + (delay || 0);
-                        var freqs = [148, 156, 296, 444];
-                        freqs.forEach(function(f, idx) {
-                            var o = ctx.createOscillator();
-                            var g = ctx.createGain();
-                            o.type = idx % 2 === 0 ? 'sawtooth' : 'square';
-                            o.frequency.setValueAtTime(f, t0);
-                            // Caída ligera de presión al final como bocina de aire real
-                            o.frequency.setValueAtTime(f, t0 + dur * 0.75);
-                            o.frequency.linearRampToValueAtTime(f * 0.92, t0 + dur);
-
-                            var vol = idx < 2 ? 0.95 : 0.55;
-                            g.gain.setValueAtTime(0.001, t0);
-                            g.gain.linearRampToValueAtTime(vol, t0 + 0.015);
-                            g.gain.setValueAtTime(vol, t0 + dur - 0.03);
-                            g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-
-                            o.connect(g);
-                            g.connect(dest);
-                            o.start(t0);
-                            o.stop(t0 + dur + 0.01);
-                        });
-                    } catch (e) {}
+                    var d = delay || 0;
+                    // Acorde de bocina de arena deportiva (potente y claro)
+                    playBeep(349.23, dur, 'sawtooth', 0.65, d); // Fa4
+                    playBeep(440.00, dur, 'sawtooth', 0.65, d); // La4
+                    playBeep(523.25, dur, 'sawtooth', 0.65, d); // Do5
+                    playBeep(698.46, dur, 'triangle', 0.70, d); // Fa5
                 }
 
+                // 5. GONG: Golpe grave con brillo de bronce
                 function tocarGong(dur, delay) {
                     var dest = getMasterAudio();
                     if (!dest) return;
@@ -991,24 +998,23 @@
                         var ctx = window.globalAudioCtx;
                         var t0 = ctx.currentTime + (delay || 0);
 
-                        // Golpe grave de mazo con caída de tono
                         var sub = ctx.createOscillator();
                         var subG = ctx.createGain();
-                        sub.type = 'triangle';
-                        sub.frequency.setValueAtTime(175, t0);
-                        sub.frequency.exponentialRampToValueAtTime(68, t0 + 0.35);
-                        subG.gain.setValueAtTime(1.0, t0);
-                        subG.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+                        sub.type = 'sine';
+                        sub.frequency.setValueAtTime(165, t0);
+                        sub.frequency.exponentialRampToValueAtTime(98, t0 + 0.4);
+                        subG.gain.setValueAtTime(0.95, t0);
+                        subG.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
                         sub.connect(subG);
                         subG.connect(dest);
                         sub.start(t0);
-                        sub.stop(t0 + dur + 0.01);
+                        sub.stop(t0 + dur + 0.015);
 
-                        // Armónicos metálicos agresivos del bronce
-                        playBeep(110, dur, 'sawtooth', 0.75, delay || 0);
-                        playBeep(165, dur * 0.85, 'square', 0.55, delay || 0);
-                        playBeep(248, dur * 0.7, 'sawtooth', 0.45, delay || 0);
-                        playBeep(495, dur * 0.5, 'triangle', 0.4, delay || 0);
+                        // Brillo metálico para que se distinga en la sala
+                        playBeep(495,  dur * 0.85, 'triangle', 0.65, delay || 0);
+                        playBeep(990,  dur * 0.70, 'sine',     0.55, delay || 0);
+                        playBeep(1485, dur * 0.55, 'sine',     0.45, delay || 0);
+                        playBeep(2475, dur * 0.40, 'sine',     0.35, delay || 0);
                     } catch (e) {}
                 }
 
@@ -1019,52 +1025,52 @@
                     } else if (tipo === 'bocina') {
                         tocarBocina(0.55, 0);
                     } else if (tipo === 'silbato') {
-                        tocarSilbato(0.42, 0);
+                        tocarSilbato(0.45, 0);
                     } else if (tipo === 'gong') {
-                        tocarGong(1.4, 0);
+                        tocarGong(1.5, 0);
                     } else if (tipo === 'crossfit') {
-                        playBeep(2200, 0.32, 'square', 1.0, 0);
-                        playBeep(2215, 0.32, 'sawtooth', 0.85, 0);
+                        playBeep(3000, 0.45, 'sine', 0.95, 0);
+                        playBeep(3000, 0.45, 'triangle', 0.45, 0);
                     } else if (tipo === 'radar') {
-                        playBeep(740, 0.14, 'sawtooth', 1.0, 0);
-                        playBeep(1110, 0.26, 'square', 1.0, 0.16);
+                        playBeep(1318, 0.14, 'triangle', 0.90, 0);
+                        playBeep(1760, 0.28, 'triangle', 0.95, 0.16);
                     } else {
-                        // CLASICO: be - beep potente
-                        tonoClasico(0.14, 0);
-                        tonoClasico(0.36, 0.22);
+                        // CLASICO: pi - piiii
+                        pitidoClasico(0.12, 0);
+                        pitidoClasico(0.45, 0.20);
                     }
                 };
 
                 window.sonidoFinalRonda = function() {
                     var tipo = gymConfig.sonido || 'clasico';
                     if (tipo === 'bocina') {
-                        tocarBocina(1.6, 0);
+                        tocarBocina(1.5, 0);
                     } else if (tipo === 'campana') {
                         tocarCampana(0);
-                        tocarCampana(0.30);
-                        tocarCampana(0.60);
+                        tocarCampana(0.28);
+                        tocarCampana(0.56);
                     } else if (tipo === 'silbato') {
-                        tocarSilbato(0.22, 0);
-                        tocarSilbato(1.15, 0.30);
+                        tocarSilbato(0.20, 0);
+                        tocarSilbato(1.10, 0.28);
                     } else if (tipo === 'gong') {
                         tocarGong(2.3, 0);
                     } else if (tipo === 'crossfit') {
                         for (var i = 0; i < 3; i++) {
-                            playBeep(2200, 0.12, 'square', 1.0, i * 0.19);
-                            playBeep(2215, 0.12, 'sawtooth', 0.85, i * 0.19);
+                            playBeep(3000, 0.11, 'sine', 0.95, i * 0.18);
+                            playBeep(3000, 0.11, 'triangle', 0.45, i * 0.18);
                         }
-                        playBeep(2200, 1.05, 'square', 1.0, 0.57);
-                        playBeep(2215, 1.05, 'sawtooth', 0.9, 0.57);
+                        playBeep(3000, 1.05, 'sine', 0.95, 0.54);
+                        playBeep(3000, 1.05, 'triangle', 0.50, 0.54);
                     } else if (tipo === 'radar') {
-                        playBeep(740, 0.18, 'sawtooth', 1.0, 0);
-                        playBeep(987, 0.18, 'sawtooth', 1.0, 0.21);
-                        playBeep(1480, 0.95, 'square', 1.0, 0.42);
-                        playBeep(740, 0.95, 'sawtooth', 0.7, 0.42);
+                        playBeep(1318, 0.16, 'triangle', 0.90, 0);
+                        playBeep(1760, 0.16, 'triangle', 0.90, 0.19);
+                        playBeep(2637, 0.95, 'sine',     0.95, 0.38);
+                        playBeep(2637, 0.95, 'triangle', 0.45, 0.38);
                     } else {
-                        // CLASICO: be - be - beeeeep agresivo
-                        tonoClasico(0.18, 0);
-                        tonoClasico(0.18, 0.27);
-                        tonoClasico(1.20, 0.54);
+                        // CLASICO: el típico pi - pi - piiiiii limpio y agudo
+                        pitidoClasico(0.15, 0);
+                        pitidoClasico(0.15, 0.25);
+                        pitidoClasico(1.15, 0.50);
                     }
                 };
 
