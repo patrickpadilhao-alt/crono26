@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>BJJ TIMER PRO</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            --accent-color: #ff6600;
+        }
+
+        /* RESET GLOBAL */
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; cursor: none !important; font-family: 'Chakra Petch', sans-serif; }
+        * { box-sizing: border-box; cursor: none !important; }
+
+        /* UTILIDADES */
+        .hidden { display: none !important; }
+        
+        /* BOTÓN DE INICIO (OVERLAY TV) */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,1); z-index: 99999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 20px;
+        }
+        .big-btn {
+            background: #fff; color: #000; border: 4px solid #fff;
+            padding: 30px 60px; font-size: 2.5rem; border-radius: 20px; font-weight: bold;
+            animation: pulse 1.5s infinite; cursor: pointer; text-transform: uppercase;
+        }
+        .gym-badge-overlay {
+            color: var(--accent-color); font-size: 1.5rem; margin-bottom: 25px; letter-spacing: 3px;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* PANTALLA DE BLOQUEO / LICENCIA INACTIVA */
+        #blocked-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0a0a; color: #fff; z-index: 100000;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 30px; font-family: 'Roboto', sans-serif;
+        }
+
+        /* PANTALLA DE PIN ADMIN */
+        #pin-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212; color: #fff; z-index: 99998;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; font-family: 'Roboto', sans-serif; cursor: default !important;
+        }
+        #pin-screen * { cursor: default !important; }
+        .pin-box {
+            background: #1e1e1e; padding: 30px; border-radius: 15px; width: 100%; max-width: 340px;
+            text-align: center; border: 1px solid #333;
+        }
+        .pin-input {
+            width: 100%; padding: 15px; font-size: 1.8rem; text-align: center; letter-spacing: 8px;
+            background: #000; border: 2px solid #444; color: #fff; border-radius: 10px; margin: 20px 0;
+        }
+        .pin-btn {
+            width: 100%; padding: 15px; background: var(--accent-color); color: #fff;
+            border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold;
+        }
+
+        /* =========================================
+           PÁGINA 1: GYM (Entreno Normal)
+           ========================================= */
+        #page-gym {
+            width: 100vw; height: 100vh;
+            display: flex; flex-direction: column;
+            background-color: #000; color: #fff;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .gym-top { height: 25vh; display: flex; justify-content: center; align-items: center; padding-top: 1vh; }
+        .gym-logo-img { height: 90%; max-width: 90%; object-fit: contain; }
+
+        .gym-center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .gym-status { font-size: 5vh; letter-spacing: 5px; color: var(--accent-color); margin-bottom: 1vh; }
+        .gym-timer { font-size: 40vh; line-height: 0.85; margin: 0; }
+
+        .gym-bottom { height: 15vh; display: flex; justify-content: space-between; align-items: flex-end; padding: 2vh 4vw; font-size: 4vh; color: #888; }
+
+        #page-gym.mode-rest { background-color: #fff; color: #000; }
+        #page-gym.mode-rest .gym-status { color: #000; }
+        #page-gym.mode-rest .gym-bottom { color: #000; }
+
+        /* =========================================
+           PÁGINA 2: COMPETICIÓN (Torneo)
+           ========================================= */
+        #page-comp {
+            width: 100vw; height: 100vh;
+            display: flex; flex-direction: column;
+            background-color: #000; color: #fff;
+        }
+
+        .comp-top { 
+            height: 20vh; display: flex; justify-content: center; align-items: center; 
+            border-bottom: 2px solid #333; position: relative;
+        }
+        .comp-timer { font-size: 14vh; font-weight: bold; line-height: 1; z-index: 2; }
+        .comp-round { position: absolute; left: 2vw; font-size: 5vh; color: #888; font-weight: bold; }
+        .comp-logo-img { position: absolute; right: 2vw; height: 80%; width: auto; object-fit: contain; }
+        
+        .comp-main { flex: 1; display: flex; width: 100%; }
+        
+        .panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 2vh; }
+        .panel-red { border-right: 2px solid #333; background: linear-gradient(to bottom, #1a0000, #000); }
+        .panel-blue { border-left: 2px solid #333; background: linear-gradient(to bottom, #00001a, #000); }
+
+        .score-big { font-size: 35vh; line-height: 0.8; font-weight: bold; margin-bottom: 5vh; }
+        .txt-red { color: #ff4444; text-shadow: 0 0 30px rgba(255,0,0,0.4); }
+        .txt-blue { color: #4444ff; text-shadow: 0 0 30px rgba(0,0,255,0.4); }
+
+        .sub-scores { display: flex; width: 100%; justify-content: space-around; }
+        .sub-box { display: flex; flex-direction: column; align-items: center; }
+        .sub-val { font-size: 8vh; font-weight: bold; }
+        .sub-lbl { font-size: 2vh; color: #aaa; font-family: sans-serif; }
+        .val-adv { color: #ffcc00; }
+        .val-pen { color: #ff0000; }
+
+        /* =========================================
+           PÁGINA 3: RELOJ (Hora Real)
+           ========================================= */
+        #page-clock {
+            width: 100vw; height: 100vh;
+            display: flex; flex-direction: column;
+            background-color: #000; color: #fff;
+        }
+        .clock-top { height: 30vh; display: flex; justify-content: center; align-items: center; padding-top: 2vh; }
+        .clock-main { flex: 1; display: flex; justify-content: center; align-items: flex-start; }
+        .clock-val { font-size: 35vw; line-height: 1; }
+
+        /* =========================================
+           VISTA ADMIN
+           ========================================= */
+        #admin-view { 
+            cursor: default !important; display: none; 
+            font-family: 'Roboto', sans-serif; background: #121212; color: white; 
+            min-height: 100vh; overflow-y: auto; flex-direction: column; padding: 15px; 
+        }
+        #admin-view * { cursor: default !important; }
+
+        .nav-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .nav-btn { padding: 15px 5px; border: 1px solid #333; background: #222; color: #fff; border-radius: 8px; font-weight: bold; font-size: 0.85rem; }
+        .nav-btn.active { background: #fff; color: #000; }
+        .btn-comp-mode { border: 1px solid var(--accent-color); color: var(--accent-color); }
+        .btn-comp-mode.active { background: var(--accent-color); color: #fff; }
+
+        .monitor-card { background: #1e1e1e; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; border: 1px solid #2a2a2a; }
+        .monitor-timer { font-size: 3.5rem; font-family: 'Chakra Petch', sans-serif; font-weight: bold; }
+        
+        .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .c-btn { padding: 20px; border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; color: white; }
+        .c-green { background: #28a745; grid-column: 1 / span 2; }
+        .c-yellow { background: #ffc107; color: #000; }
+        .c-red { background: #dc3545; }
+
+        #comp-tools { display: none; background: #000; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #333; }
+        .fighters-ctrl { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .score-row { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; }
+        .round-btn { width: 34px; height: 34px; border-radius: 50%; border: none; font-weight: bold; font-size: 1.2rem; }
+        .b-plus { background: #444; color: #fff; }
+        .b-minus { background: #222; border: 1px solid #444; color: #888; }
+        .sc-display { font-weight: bold; width: 30px; text-align: center; }
+
+        .settings-card { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #2a2a2a; }
+        .settings-card input { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 80px; text-align: center; border-radius: 5px; font-size: 1.2rem; }
+        .save-btn { width: 100%; padding: 15px; background: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 15px; font-size: 1rem; }
+    </style>
+
+    <script>
+        function forzarInicio() {
+            var overlay = document.getElementById('overlay');
+            if(overlay) overlay.style.display = 'none';
+            
+            var elem = document.documentElement;
+            if (elem.requestFullscreen) { elem.requestFullscreen().catch(function(){}); } 
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } 
+            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
+            
+            try {
+                window.globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                var o = window.globalAudioCtx.createOscillator();
+                o.connect(window.globalAudioCtx.destination);
+                o.start(); o.stop(window.globalAudioCtx.currentTime + 0.01);
+            } catch(e) {}
+        }
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+    </script>
+</head>
+<body>
+
+    <!-- PANTALLA LICENCIA SUSPENDIDA / NO EXISTENTE -->
+    <div id="blocked-screen">
+        <i class="fas fa-lock" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+        <h1 style="margin: 0 0 10px 0;">CRONÓMETRO NO ACTIVO</h1>
+        <p style="color: #888; max-width: 400px;">Este identificador de gimnasio no existe o su licencia está temporalmente suspendida.</p>
+    </div>
+
+    <!-- PANTALLA PIN PARA ENTRAR EN MODO ADMIN -->
+    <div id="pin-screen">
+        <div class="pin-box">
+            <div id="pinGymTitle" style="color: var(--accent-color); font-weight: bold; letter-spacing: 2px;">ACCESO CONTROL</div>
+            <p style="color: #aaa; font-size: 0.9rem;">Introduce el PIN del gimnasio</p>
+            <input type="password" id="pinInput" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••">
+            <button class="pin-btn" onclick="verificarPin()">ENTRAR</button>
+            <p id="pinError" style="color: #ff4444; font-size: 0.85rem; margin-top: 12px; display: none;">PIN incorrecto</p>
+        </div>
+    </div>
+
+    <!-- VISTA TELEVISOR -->
+    <div id="tv-view">
+        <div id="overlay" onclick="forzarInicio()" ontouchstart="forzarInicio()">
+            <div id="overlayGymName" class="gym-badge-overlay">BJJ TIMER</div>
+            <div class="big-btn">CLICK PARA PANTALLA COMPLETA</div>
+        </div>
+
+        <div id="page-gym">
+            <div class="gym-top">
+                <img src="" id="logoGym" class="gym-logo-img" alt="Logo">
+            </div>
+            <div class="gym-center">
+                <div id="gymStatus" class="gym-status">LISTO</div>
+                <div id="gymTimer" class="gym-timer">00:00</div>
+            </div>
+            <div class="gym-bottom">
+                <div id="gymRound">LUCHA 1</div>
+                <div id="gymClock">00:00</div>
+            </div>
+        </div>
+
+        <div id="page-comp" class="hidden">
+            <div class="comp-top">
+                <div id="compRound" class="comp-round">R1</div>
+                <div id="compTimer" class="comp-timer">00:00</div>
+                <img src="" id="logoComp" class="comp-logo-img" alt="Logo">
+            </div>
+            <div class="comp-main">
+                <div class="panel panel-red">
+                    <div id="scRed" class="score-big txt-red">0</div>
+                    <div class="sub-scores">
+                        <div class="sub-box"><span id="advRed" class="sub-val val-adv">0</span><span class="sub-lbl">VENT</span></div>
+                        <div class="sub-box"><span id="penRed" class="sub-val val-pen">0</span><span class="sub-lbl">PEN</span></div>
+                    </div>
+                </div>
+                <div class="panel panel-blue">
+                    <div id="scBlue" class="score-big txt-blue">0</div>
+                    <div class="sub-scores">
+                        <div class="sub-box"><span id="advBlue" class="sub-val val-adv">0</span><span class="sub-lbl">VENT</span></div>
+                        <div class="sub-box"><span id="penBlue" class="sub-val val-pen">0</span><span class="sub-lbl">PEN</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-clock" class="hidden">
+            <div class="clock-top">
+                <img src="" id="logoClock" class="gym-logo-img" alt="Logo">
+            </div>
+            <div class="clock-main">
+                <div id="realClock" class="clock-val">00:00</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA ADMIN (MÓVIL / TABLET DEL INSTRUCTOR) -->
+    <div id="admin-view">
+        <div id="admGymTitle" style="text-align:center; color:var(--accent-color); margin-bottom:12px; font-weight:bold; letter-spacing: 1px;">BJJ COMMANDER</div>
+        <div class="nav-bar">
+            <button class="nav-btn active" id="navGym" onclick="setMode('gym')">GYM</button>
+            <button class="nav-btn" id="navClock" onclick="setMode('clock')">RELOJ</button>
+            <button class="nav-btn btn-comp-mode" id="navComp" onclick="setMode('comp')">COMPETICIÓN</button>
+        </div>
+        <div class="monitor-card">
+            <div id="admStatus" style="color:#aaa;">LISTO</div>
+            <div id="admTimer" class="monitor-timer">00:00</div>
+            <div id="admRound" style="color:#888; margin-top: 5px;">Lucha 1</div>
+        </div>
+        <div class="ctrl-grid">
+            <button class="c-btn c-green" onclick="accion('start')">START</button>
+            <button class="c-btn c-yellow" onclick="accion('pause')">PAUSA</button>
+            <button class="c-btn c-red" onclick="accion('reset')">RESET</button>
+        </div>
+        <div id="comp-tools">
+            <div class="fighters-ctrl">
+                <div class="f-ctrl-col">
+                    <h3 style="color:#ff4444; margin-top:0;">ROJO</h3>
+                    <div class="score-row"><span>PTS</span> <button class="round-btn b-minus" onclick="sc('Red','score',-1)">-</button><span class="sc-display" id="aScRed">0</span><button class="round-btn b-plus" onclick="sc('Red','score',1)">+</button></div>
+                    <div class="score-row"><span style="color:#fc0">V</span> <button class="round-btn b-minus" onclick="sc('Red','adv',-1)">-</button><span class="sc-display" id="aAdvRed">0</span><button class="round-btn b-plus" onclick="sc('Red','adv',1)">+</button></div>
+                    <div class="score-row"><span style="color:#f00">P</span> <button class="round-btn b-minus" onclick="sc('Red','pen',-1)">-</button><span class="sc-display" id="aPenRed">0</span><button class="round-btn b-plus" onclick="sc('Red','pen',1)">+</button></div>
+                </div>
+                <div class="f-ctrl-col">
+                    <h3 style="color:#4444ff; margin-top:0;">AZUL</h3>
+                    <div class="score-row"><span>PTS</span> <button class="round-btn b-minus" onclick="sc('Blue','score',-1)">-</button><span class="sc-display" id="aScBlue">0</span><button class="round-btn b-plus" onclick="sc('Blue','score',1)">+</button></div>
+                    <div class="score-row"><span style="color:#fc0">V</span> <button class="round-btn b-minus" onclick="sc('Blue','adv',-1)">-</button><span class="sc-display" id="aAdvBlue">0</span><button class="round-btn b-plus" onclick="sc('Blue','adv',1)">+</button></div>
+                    <div class="score-row"><span style="color:#f00">P</span> <button class="round-btn b-minus" onclick="sc('Blue','pen',-1)">-</button><span class="sc-display" id="aPenBlue">0</span><button class="round-btn b-plus" onclick="sc('Blue','pen',1)">+</button></div>
+                </div>
+            </div>
+        </div>
+        <div class="settings-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <label>Lucha (min)</label> <input type="number" step="0.5" id="tWork" value="5">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <label>Descanso (min)</label> <input type="number" step="0.5" id="tRest" value="1">
+            </div>
+            <button class="save-btn" onclick="guardarConfig()">APLICAR DATOS</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        /* =====================================================================
+           1. PÉGA AQUÍ LOS DATOS DE TU NUEVA FIREBASE
+           ===================================================================== */
+       var firebaseConfig = {
+            apiKey: "AIzaSyCb0itpt6VUb2HEqhGaLLADB_pAlC6SoIQ",
+  authDomain: "cronometro26.firebaseapp.com",
+  databaseURL: "https://cronometro26-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cronometro26",
+  storageBucket: "cronometro26.firebasestorage.app",
+  messagingSenderId: "510175926315",
+  appId: "1:510175926315:web:7dfec123b80bc3c4b0326e"
+        };
+
+        /* =====================================================================
+           2. LISTA DE GIMNASIOS CLIENTES (AÑADE AQUÍ CADA GIMNASIO QUE VENDAS)
+           - Para abrir la TV de un cliente:      tudominio.com/?gym=gimnasio1
+           - Para abrir el mando del cliente:     tudominio.com/?gym=gimnasio1&admin
+           ===================================================================== */
+        var GIMNASIOS = {
+            "principal": {
+                activo: true,
+                nombre: "MI ACADEMIA BJJ",
+                logoSobreNegro: "https://i.postimg.cc/J0kwgCpF/logo-html-negro.jpg", // Logo visible cuando el fondo es negro
+                logoSobreBlanco: "https://i.postimg.cc/C1tTmxs8/logo-blanco.jpg",   // Logo visible en descanso (fondo blanco)
+                colorAcento: "#ff6600",
+                pinAdmin: "1234"
+            },
+            "gimnasio-cliente-1": {
+                activo: true,
+                nombre: "GRACIE CLIENTE 1",
+                logoSobreNegro: "https://URL_DEL_LOGO_CLARO_DEL_CLIENTE.png",
+                logoSobreBlanco: "https://URL_DEL_LOGO_OSCURO_DEL_CLIENTE.png",
+                colorAcento: "#00aaff",
+                pinAdmin: "4589"
+            },
+            "gimnasio-cliente-2": {
+                activo: false, // Si lo pones en false, su TV se bloquea al instante
+                nombre: "CLIENTE MOROSO BJJ",
+                logoSobreNegro: "https://URL_DEL_LOGO.png",
+                logoSobreBlanco: "https://URL_DEL_LOGO.png",
+                colorAcento: "#e63946",
+                pinAdmin: "9912"
+            }
+        };
+
+        /* =====================================================================
+           3. LÓGICA DEL SISTEMA (NO HACE FALTA TOCAR NADA DE AQUÍ PARA ABAJO)
+           ===================================================================== */
+        function getParam(name) {
+            var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+            return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+        }
+
+        var gymId = (getParam('gym') || 'principal').toLowerCase().trim();
+        var gymConfig = GIMNASIOS[gymId];
+        var isAdmin = window.location.search.indexOf('admin') > -1;
+
+        // Verificar si el gimnasio existe y tiene licencia activa
+        if (!gymConfig || !gymConfig.activo) {
+            document.getElementById('tv-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'none';
+            document.getElementById('blocked-screen').style.display = 'flex';
+        } else {
+            // Aplicar personalización visual del gimnasio
+            document.title = gymConfig.nombre + " - TIMER";
+            document.documentElement.style.setProperty('--accent-color', gymConfig.colorAcento || '#ff6600');
+            document.getElementById('overlayGymName').innerText = gymConfig.nombre;
+            document.getElementById('admGymTitle').innerText = gymConfig.nombre + " • CONTROL";
+            document.getElementById('pinGymTitle').innerText = gymConfig.nombre;
+
+            var urlLogoNegroFondo = gymConfig.logoSobreNegro;
+            var urlLogoBlancoFondo = gymConfig.logoSobreBlanco || gymConfig.logoSobreNegro;
+
+            if (isAdmin) {
+                document.getElementById('tv-view').style.display = 'none';
+                document.body.style.overflow = 'auto';
+
+                // Comprobar si ya metió el PIN en esta sesión
+                if (sessionStorage.getItem('auth_' + gymId) === 'ok') {
+                    iniciarSistema();
+                } else {
+                    document.getElementById('pin-screen').style.display = 'flex';
+                    document.getElementById('pinInput').addEventListener('keyup', function(e) {
+                        if (e.key === 'Enter') verificarPin();
+                    });
+                }
+            } else {
+                iniciarSistema();
+            }
+        }
+
+        function verificarPin() {
+            var entered = document.getElementById('pinInput').value.trim();
+            if (entered === String(gymConfig.pinAdmin)) {
+                sessionStorage.setItem('auth_' + gymId, 'ok');
+                document.getElementById('pin-screen').style.display = 'none';
+                iniciarSistema();
+            } else {
+                document.getElementById('pinError').style.display = 'block';
+                document.getElementById('pinInput').value = '';
+            }
+        }
+
+        function iniciarSistema() {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                var db = firebase.database();
+                
+                // Cada gimnasio tiene su propia carpeta aislada dentro de tu nueva Firebase
+                var ref = db.ref('gimnasios/' + gymId);
+
+                var pGym = document.getElementById('page-gym');
+                var pComp = document.getElementById('page-comp');
+                var pClock = document.getElementById('page-clock');
+                var logoGym = document.getElementById('logoGym');
+                var logoClock = document.getElementById('logoClock');
+                var logoComp = document.getElementById('logoComp');
+
+                if (isAdmin) {
+                    forzarInicio();
+                    document.getElementById('admin-view').style.display = 'flex';
+                }
+
+                var serverOffset = 0;
+                var lastPhase = '';
+                var localInterval = null;
+                var lastBeepedSec = -1;
+                var configCargadaEnInputs = false;
+
+                db.ref(".info/serverTimeOffset").on("value", function(snap) {
+                    serverOffset = snap.val() || 0;
+                });
+
+                setInterval(function() {
+                    var d = new Date();
+                    var t = pad(d.getHours()) + ":" + pad(d.getMinutes());
+                    document.getElementById('gymClock').innerText = t;
+                    document.getElementById('realClock').innerText = t;
+                }, 1000);
+
+                ref.on('value', function(snapshot) {
+                    var data = snapshot.val();
+                    
+                    // Si es un gimnasio nuevo sin datos aún en Firebase, inicializamos sus valores por defecto
+                    if (!data) {
+                        ref.set({
+                            viewMode: 'gym',
+                            estado: 'stop',
+                            fase: 'work',
+                            confWork: 5,
+                            confRest: 1,
+                            tiempoRestante: 300,
+                            ronda: 1,
+                            scoreRed: 0, advRed: 0, penRed: 0,
+                            scoreBlue: 0, advBlue: 0, penBlue: 0
+                        });
+                        return;
+                    }
+
+                    if (!isAdmin) {
+                        pGym.classList.add('hidden');
+                        pComp.classList.add('hidden');
+                        pClock.classList.add('hidden');
+                        
+                        if (data.viewMode === 'comp') {
+                            pComp.classList.remove('hidden');
+                            if (logoComp.src !== urlLogoNegroFondo) logoComp.src = urlLogoNegroFondo;
+                        } else if (data.viewMode === 'clock') {
+                            pClock.classList.remove('hidden');
+                            if (logoClock.src !== urlLogoNegroFondo) logoClock.src = urlLogoNegroFondo;
+                        } else {
+                            pGym.classList.remove('hidden');
+                            if (data.fase === 'rest') {
+                                pGym.classList.add('mode-rest');
+                                if (logoGym.src !== urlLogoBlancoFondo) logoGym.src = urlLogoBlancoFondo;
+                            } else {
+                                pGym.classList.remove('mode-rest');
+                                if (logoGym.src !== urlLogoNegroFondo) logoGym.src = urlLogoNegroFondo;
+                            }
+                        }
+                    } else {
+                        document.getElementById('navGym').classList.remove('active');
+                        document.getElementById('navClock').classList.remove('active');
+                        document.getElementById('navComp').classList.remove('active');
+                        document.getElementById('comp-tools').style.display = 'none';
+
+                        if (data.viewMode === 'comp') {
+                            document.getElementById('navComp').classList.add('active');
+                            document.getElementById('comp-tools').style.display = 'block';
+                        } else if (data.viewMode === 'clock') {
+                            document.getElementById('navClock').classList.add('active');
+                        } else {
+                            document.getElementById('navGym').classList.add('active');
+                        }
+
+                        if (!configCargadaEnInputs && data.confWork && data.confRest) {
+                            document.getElementById('tWork').value = data.confWork;
+                            document.getElementById('tRest').value = data.confRest;
+                            configCargadaEnInputs = true;
+                        }
+                    }
+
+                    var stT = data.estado === 'pause' ? "PAUSA" : (data.estado === 'stop' ? "LISTO" : (data.fase === 'rest' ? "DESCANSO" : "LUCHA"));
+                    var rT = "LUCHA " + (data.ronda || 1);
+
+                    if (!isAdmin) {
+                        document.getElementById('gymStatus').innerText = stT;
+                        document.getElementById('gymRound').innerText = rT;
+                        document.getElementById('compRound').innerText = "R" + (data.ronda || 1);
+                        document.getElementById('scRed').innerText = data.scoreRed || 0;
+                        document.getElementById('advRed').innerText = data.advRed || 0;
+                        document.getElementById('penRed').innerText = data.penRed || 0;
+                        document.getElementById('scBlue').innerText = data.scoreBlue || 0;
+                        document.getElementById('advBlue').innerText = data.advBlue || 0;
+                        document.getElementById('penBlue').innerText = data.penBlue || 0;
+                    } else {
+                        document.getElementById('admStatus').innerText = stT;
+                        document.getElementById('admRound').innerText = rT;
+                        document.getElementById('aScRed').innerText = data.scoreRed || 0;
+                        document.getElementById('aAdvRed').innerText = data.advRed || 0;
+                        document.getElementById('aPenRed').innerText = data.penRed || 0;
+                        document.getElementById('aScBlue').innerText = data.scoreBlue || 0;
+                        document.getElementById('aAdvBlue').innerText = data.advBlue || 0;
+                        document.getElementById('aPenBlue').innerText = data.penBlue || 0;
+                    }
+
+                    if (lastPhase !== '' && lastPhase !== data.fase) {
+                        lastBeepedSec = -1;
+                        if (!isAdmin && data.estado === 'run' && data.viewMode !== 'clock') {
+                            sonidoFinalRonda();
+                        }
+                    }
+                    lastPhase = data.fase;
+
+                    if (data.estado === 'run') {
+                        if (localInterval) clearInterval(localInterval);
+                        localInterval = setInterval(function() {
+                            var now = Date.now() + serverOffset;
+                            var elapsed = Math.floor((now - data.inicio) / 1000);
+                            var total = Math.round((data.fase === 'work' ? data.confWork : data.confRest) * 60);
+                            var remaining = total - elapsed;
+
+                            if (!isAdmin && data.viewMode !== 'clock') {
+                                if (remaining <= 10 && remaining > 0) {
+                                    var cs = Math.ceil(remaining);
+                                    if (cs !== lastBeepedSec) {
+                                        playBeep(500, 0.1, 'sine');
+                                        lastBeepedSec = cs;
+                                    }
+                                }
+                            }
+
+                            if (remaining <= 0) {
+                                remaining = 0;
+                                clearInterval(localInterval);
+                                autoCambioFase(data);
+                            }
+                            pintar(remaining);
+                        }, 150);
+                    } else {
+                        if (localInterval) clearInterval(localInterval);
+                        var val = (typeof data.tiempoRestante === 'number') ? data.tiempoRestante : Math.round((data.confWork || 5) * 60);
+                        pintar(val);
+                    }
+                });
+
+                window.pintar = function(s) {
+                    if (s < 0) s = 0;
+                    var m = pad(Math.floor(s / 60));
+                    var sc = pad(Math.floor(s % 60));
+                    var txt = m + ":" + sc;
+                    if (!isAdmin) {
+                        document.getElementById('gymTimer').innerText = txt;
+                        document.getElementById('compTimer').innerText = txt;
+                    } else {
+                        document.getElementById('admTimer').innerText = txt;
+                    }
+                };
+
+                window.setMode = function(m) { ref.update({ viewMode: m }); };
+                
+                window.accion = function(type) {
+                    ref.once('value').then(function(snap) {
+                        var d = snap.val() || { confWork: 5, confRest: 1, fase: 'work', ronda: 1 };
+                        var now = Date.now() + serverOffset;
+                        var u = {};
+
+                        if (type === 'start') {
+                            if (d.estado === 'run') return;
+                            sonidoStart();
+                            var dur = Math.round((d.fase === 'work' ? d.confWork : d.confRest) * 60);
+                            var ini = firebase.database.ServerValue.TIMESTAMP;
+                            if (d.estado === 'pause') ini = now - ((dur - d.tiempoRestante) * 1000);
+                            u.estado = 'run'; u.inicio = ini;
+                        }
+                        if (type === 'pause') {
+                            if (d.estado !== 'run') return;
+                            var elap = Math.floor((now - d.inicio) / 1000);
+                            var tot = Math.round((d.fase === 'work' ? d.confWork : d.confRest) * 60);
+                            u.estado = 'pause'; u.tiempoRestante = Math.max(0, tot - elap);
+                        }
+                        if (type === 'reset') {
+                            u.estado = 'stop'; u.fase = 'work'; u.tiempoRestante = Math.round(d.confWork * 60); u.ronda = 1;
+                            u.scoreRed = 0; u.advRed = 0; u.penRed = 0;
+                            u.scoreBlue = 0; u.advBlue = 0; u.penBlue = 0;
+                        }
+                        ref.update(u);
+                    });
+                };
+
+                window.sc = function(col, type, val) {
+                    var k = type + col;
+                    ref.child(k).transaction(function(cur) {
+                        var n = (cur || 0) + val;
+                        return n < 0 ? 0 : n;
+                    });
+                };
+
+                window.guardarConfig = function() {
+                    var w = parseFloat(document.getElementById('tWork').value) || 5;
+                    var r = parseFloat(document.getElementById('tRest').value) || 1;
+                    ref.update({ confWork: w, confRest: r, estado: 'stop', fase: 'work', tiempoRestante: Math.round(w * 60), ronda: 1 });
+                };
+
+                // Transacción segura para que aunque haya 3 pantallas abiertas, solo 1 cambie la ronda
+                window.autoCambioFase = function(d) {
+                    ref.transaction(function(currentData) {
+                        if (!currentData) return currentData;
+                        if (currentData.estado !== 'run' || currentData.fase !== d.fase || currentData.inicio !== d.inicio) {
+                            return; // Otro dispositivo ya realizó el cambio
+                        }
+                        var nf = currentData.fase === 'work' ? 'rest' : 'work';
+                        var nr = currentData.ronda || 1;
+                        if (currentData.fase === 'rest') nr++;
+
+                        currentData.estado = 'run';
+                        currentData.fase = nf;
+                        currentData.inicio = firebase.database.ServerValue.TIMESTAMP;
+                        currentData.ronda = nr;
+                        return currentData;
+                    });
+                };
+
+                window.playBeep = function(f, d, t) {
+                    if (!window.globalAudioCtx) return;
+                    try {
+                        var o = window.globalAudioCtx.createOscillator();
+                        var g = window.globalAudioCtx.createGain();
+                        o.type = t; o.frequency.value = f;
+                        o.connect(g); g.connect(window.globalAudioCtx.destination);
+                        o.start(); o.stop(window.globalAudioCtx.currentTime + d);
+                    } catch (e) {}
+                };
+                window.sonidoStart = function() { playBeep(600, 0.1, 'sine'); };
+                window.sonidoFinalRonda = function() {
+                    playBeep(800, 0.3, 'square');
+                    setTimeout(function() { playBeep(800, 0.3, 'square'); }, 400);
+                    setTimeout(function() { playBeep(800, 1.2, 'square'); }, 800);
+                };
+
+            } catch (e) {
+                console.error("Error iniciando Firebase:", e);
+            }
+        }
+    </script>
+</body>
+</html>
