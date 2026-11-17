@@ -82,7 +82,7 @@
         }
         
         .gym-top { height: 25vh; display: flex; justify-content: center; align-items: center; padding-top: 1vh; }
-        .gym-logo-img { height: 90%; max-width: 90%; object-fit: contain; }
+        .gym-logo-img { height: 90%; max-width: 90%; object-fit: contain; display: none; }
 
         .gym-center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .gym-status { font-size: 5vh; letter-spacing: 5px; color: var(--accent-color); margin-bottom: 1vh; }
@@ -109,7 +109,7 @@
         }
         .comp-timer { font-size: 14vh; font-weight: bold; line-height: 1; z-index: 2; }
         .comp-round { position: absolute; left: 2vw; font-size: 5vh; color: #888; font-weight: bold; }
-        .comp-logo-img { position: absolute; right: 2vw; height: 80%; width: auto; object-fit: contain; }
+        .comp-logo-img { position: absolute; right: 2vw; height: 80%; width: auto; object-fit: contain; display: none; }
         
         .comp-main { flex: 1; display: flex; width: 100%; }
         .panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 2vh; }
@@ -140,6 +140,45 @@
         .clock-val { font-size: 35vw; line-height: 1; }
 
         /* =========================================
+           PÁGINA 4: MODO FOTO (Logo gigante + Reloj esquina)
+           ========================================= */
+        #page-photo {
+            width: 100vw; height: 100vh;
+            position: relative;
+            display: flex; justify-content: center; align-items: center;
+            background-color: var(--bg-work); color: var(--txt-work);
+            padding: 5vh 5vw;
+        }
+        .photo-center {
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .photo-logo-img {
+            max-width: 85vw;
+            max-height: 82vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: none;
+        }
+        .photo-fallback-name {
+            font-size: 7vw;
+            text-align: center;
+            letter-spacing: 4px;
+            color: var(--txt-work);
+            display: none;
+        }
+        .photo-clock {
+            position: absolute;
+            bottom: 3vh;
+            right: 4vw;
+            font-size: 5.5vh;
+            line-height: 1;
+            color: var(--txt-work);
+            opacity: 0.85;
+        }
+
+        /* =========================================
            VISTA ADMIN (MÓVIL DEL INSTRUCTOR)
            ========================================= */
         #admin-view { 
@@ -149,8 +188,8 @@
         }
         #admin-view * { cursor: default !important; }
 
-        .nav-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .nav-btn { padding: 15px 5px; border: 1px solid #333; background: #222; color: #fff; border-radius: 8px; font-weight: bold; font-size: 0.85rem; }
+        .nav-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+        .nav-btn { padding: 15px 4px; border: 1px solid #333; background: #222; color: #fff; border-radius: 8px; font-weight: bold; font-size: 0.78rem; }
         .nav-btn.active { background: #fff; color: #000; }
         .btn-comp-mode { border: 1px solid var(--accent-color); color: var(--accent-color); }
         .btn-comp-mode.active { background: var(--accent-color); color: #fff; }
@@ -231,7 +270,7 @@
 
         <div id="page-gym">
             <div class="gym-top">
-                <img src="" id="logoGym" class="gym-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
+                <img id="logoGym" class="gym-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
             </div>
             <div class="gym-center">
                 <div id="gymStatus" class="gym-status">LISTO</div>
@@ -247,7 +286,7 @@
             <div class="comp-top">
                 <div id="compRound" class="comp-round">R1</div>
                 <div id="compTimer" class="comp-timer">00:00</div>
-                <img src="" id="logoComp" class="comp-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
+                <img id="logoComp" class="comp-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
             </div>
             <div class="comp-main">
                 <div class="panel panel-red">
@@ -269,11 +308,19 @@
 
         <div id="page-clock" class="hidden">
             <div class="clock-top">
-                <img src="" id="logoClock" class="gym-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
+                <img id="logoClock" class="gym-logo-img" alt="Logo" onload="this.style.display='block'" onerror="this.style.display='none'">
             </div>
             <div class="clock-main">
                 <div id="realClock" class="clock-val">00:00</div>
             </div>
+        </div>
+
+        <div id="page-photo" class="hidden">
+            <div class="photo-center">
+                <img id="logoPhoto" class="photo-logo-img" alt="Logo" onload="this.style.display='block'; document.getElementById('photoFallbackName').style.display='none';" onerror="this.style.display='none'; document.getElementById('photoFallbackName').style.display='block';">
+                <div id="photoFallbackName" class="photo-fallback-name"></div>
+            </div>
+            <div id="photoClock" class="photo-clock">00:00</div>
         </div>
     </div>
 
@@ -283,6 +330,7 @@
         <div class="nav-bar">
             <button class="nav-btn active" id="navGym" onclick="setMode('gym')">GYM</button>
             <button class="nav-btn" id="navClock" onclick="setMode('clock')">RELOJ</button>
+            <button class="nav-btn" id="navPhoto" onclick="setMode('photo')">FOTO</button>
             <button class="nav-btn btn-comp-mode" id="navComp" onclick="setMode('comp')">COMPETICIÓN</button>
         </div>
         <div class="monitor-card">
@@ -343,17 +391,11 @@
         /* ████████████████████████████████████████████████████████████████████
            2. PANEL DE CONTROL DE TUS GIMNASIOS (EDITA SOLO ESTA ZONA)
            
-           CÓMO USARLO PARA CADA CLIENTE:
-           - Copias uno de los bloques de abajo y cambias el nombre clave (sin espacios).
-           - Enlace para la TV del cliente:      tuweb.com/?gym=clave-cliente
-           - Enlace para el móvil del cliente:   tuweb.com/?gym=clave-cliente&admin
-           
-           OPCIONES DISPONIBLES:
-           - activo:        true (funciona) | false (bloqueado si no paga)
-           - sonido:        "clasico" | "bocina" | "campana"
-           - segundosAviso: 10 (pita los últimos 10 seg) | 5 | 0 (sin pitidos)
-           - colores:       Usa códigos hex (#000000 negro, #ffffff blanco,
-                            #ff0000 rojo, #00aaff azul, #ffcc00 amarillo, #00cc66 verde)
+           - Enlace TV cliente:    tuweb.com/?gym=clave-cliente
+           - Enlace Móvil admin:   tuweb.com/?gym=clave-cliente&admin
+           - Logo vacío:           Deja "" si aún no tienes logo; cuando lo
+                                   tengas, pega el enlace directo .png o .jpg
+           - Sonidos:              "clasico" | "bocina" | "campana"
            ████████████████████████████████████████████████████████████████████ */
         var GIMNASIOS = {
 
@@ -362,8 +404,8 @@
                 activo: true,
                 nombre: "VILA-SECA JIU-JITSU",
                 pinAdmin: "1234",
-                logoLucha: "https://i.postimg.cc/J0kwgCpF/logo-html-negro.jpg",
-                logoDescanso: "https://i.postimg.cc/C1tTmxs8/logo-blanco.jpg",
+                logoLucha: "",        // <-- PEGA AQUÍ EL ENLACE DE TU NUEVO LOGO CUANDO LO TENGAS
+                logoDescanso: "",     // <-- PEGA AQUÍ EL LOGO PARA EL DESCANSO (O EL MISMO ENLACE)
                 colores: {
                     acento: "#ff6600",        // Naranja
                     fondoLucha: "#000000",    // Negro
@@ -385,18 +427,18 @@
             // ---------------- EJEMPLO CLIENTE 1 (URL: ?gym=12onzas) ----------------
             "12onzas": {
                 activo: true,
-                nombre: "12 ONZAS BOXING",
+                nombre: "12 ONZAS MARTIAL ARTS ACADEMY",
                 pinAdmin: "5588",
-                logoLucha: "https://PON_AQUI_EL_LOGO_DEL_CLIENTE.png",
-                logoDescanso: "https://PON_AQUI_EL_LOGO_DEL_CLIENTE.png",
+                logoLucha: "12onzas.jpeg",
+                logoDescanso: "12onzas.jpeg",
                 colores: {
-                    acento: "#ffcc00",        // Amarillo dorado
-                    fondoLucha: "#0a0a0a",    // Negro
-                    textoLucha: "#ffffff",    // Blanco
-                    fondoDescanso: "#800000", // Rojo oscuro en descanso
-                    textoDescanso: "#ffffff"  // Blanco
+                    acento: "#ffcc00",
+                    fondoLucha: "#0a0a0a",
+                    textoLucha: "#ffffff",
+                    fondoDescanso: "#800000",
+                    textoDescanso: "#ffffff"
                 },
-                sonido: "campana",            // Campana de boxeo
+                sonido: "campana",
                 segundosAviso: 10,
                 textos: {
                     listo: "PREPARADOS",
@@ -409,19 +451,19 @@
 
             // ---------------- EJEMPLO CLIENTE 2 (URL: ?gym=cliente-bjj) ----------------
             "cliente-bjj": {
-                activo: true,                 // Cámbialo a false para bloquearle el reloj
+                activo: true,
                 nombre: "ACADEMIA CLIENTE BJJ",
                 pinAdmin: "9012",
-                logoLucha: "https://PON_AQUI_EL_LOGO_BLANCO.png",
-                logoDescanso: "https://PON_AQUI_EL_LOGO_NEGRO.png",
+                logoLucha: "",
+                logoDescanso: "",
                 colores: {
-                    acento: "#00b4d8",        // Azul celeste
-                    fondoLucha: "#000814",    // Azul muy oscuro
-                    textoLucha: "#ffffff",    // Blanco
-                    fondoDescanso: "#ffffff", // Blanco
-                    textoDescanso: "#000814"  // Azul muy oscuro
+                    acento: "#00b4d8",
+                    fondoLucha: "#000814",
+                    textoLucha: "#ffffff",
+                    fondoDescanso: "#ffffff",
+                    textoDescanso: "#000814"
                 },
-                sonido: "bocina",             // Bocina grave tipo torneo
+                sonido: "bocina",
                 segundosAviso: 5,
                 textos: {
                     listo: "LISTO",
@@ -464,9 +506,10 @@
             document.getElementById('overlayGymName').innerText = gymConfig.nombre;
             document.getElementById('admGymTitle').innerText = gymConfig.nombre + " • CONTROL";
             document.getElementById('pinGymTitle').innerText = gymConfig.nombre;
+            document.getElementById('photoFallbackName').innerText = gymConfig.nombre;
 
-            var urlLogoLucha = gymConfig.logoLucha;
-            var urlLogoDescanso = gymConfig.logoDescanso || gymConfig.logoLucha;
+            var urlLogoLucha = (gymConfig.logoLucha || "").trim();
+            var urlLogoDescanso = (gymConfig.logoDescanso || urlLogoLucha || "").trim();
             var txtCfg = Object.assign({ listo: "LISTO", lucha: "LUCHA", descanso: "DESCANSO", pausa: "PAUSA", ronda: "LUCHA" }, gymConfig.textos || {});
 
             if (isAdmin) {
@@ -498,6 +541,19 @@
             }
         }
 
+        function aplicarLogo(imgElement, url, fallbackEl) {
+            if (!url) {
+                imgElement.style.display = 'none';
+                imgElement.removeAttribute('src');
+                if (fallbackEl) fallbackEl.style.display = 'block';
+            } else {
+                if (imgElement.getAttribute('src') !== url) {
+                    imgElement.src = url;
+                }
+                if (fallbackEl) fallbackEl.style.display = 'none';
+            }
+        }
+
         function iniciarSistema() {
             try {
                 firebase.initializeApp(firebaseConfig);
@@ -507,9 +563,12 @@
                 var pGym = document.getElementById('page-gym');
                 var pComp = document.getElementById('page-comp');
                 var pClock = document.getElementById('page-clock');
+                var pPhoto = document.getElementById('page-photo');
                 var logoGym = document.getElementById('logoGym');
                 var logoClock = document.getElementById('logoClock');
                 var logoComp = document.getElementById('logoComp');
+                var logoPhoto = document.getElementById('logoPhoto');
+                var photoFallback = document.getElementById('photoFallbackName');
 
                 if (isAdmin) {
                     forzarInicio();
@@ -526,12 +585,15 @@
                     serverOffset = snap.val() || 0;
                 });
 
-                setInterval(function() {
+                function actualizarRelojes() {
                     var d = new Date();
                     var t = pad(d.getHours()) + ":" + pad(d.getMinutes());
                     document.getElementById('gymClock').innerText = t;
                     document.getElementById('realClock').innerText = t;
-                }, 1000);
+                    document.getElementById('photoClock').innerText = t;
+                }
+                actualizarRelojes();
+                setInterval(actualizarRelojes, 1000);
 
                 ref.on('value', function(snapshot) {
                     var data = snapshot.val();
@@ -555,26 +617,31 @@
                         pGym.classList.add('hidden');
                         pComp.classList.add('hidden');
                         pClock.classList.add('hidden');
+                        pPhoto.classList.add('hidden');
                         
                         if (data.viewMode === 'comp') {
                             pComp.classList.remove('hidden');
-                            if (logoComp.src !== urlLogoLucha) logoComp.src = urlLogoLucha;
+                            aplicarLogo(logoComp, urlLogoLucha);
                         } else if (data.viewMode === 'clock') {
                             pClock.classList.remove('hidden');
-                            if (logoClock.src !== urlLogoLucha) logoClock.src = urlLogoLucha;
+                            aplicarLogo(logoClock, urlLogoLucha);
+                        } else if (data.viewMode === 'photo') {
+                            pPhoto.classList.remove('hidden');
+                            aplicarLogo(logoPhoto, urlLogoLucha, photoFallback);
                         } else {
                             pGym.classList.remove('hidden');
                             if (data.fase === 'rest') {
                                 pGym.classList.add('mode-rest');
-                                if (logoGym.src !== urlLogoDescanso) logoGym.src = urlLogoDescanso;
+                                aplicarLogo(logoGym, urlLogoDescanso);
                             } else {
                                 pGym.classList.remove('mode-rest');
-                                if (logoGym.src !== urlLogoLucha) logoGym.src = urlLogoLucha;
+                                aplicarLogo(logoGym, urlLogoLucha);
                             }
                         }
                     } else {
                         document.getElementById('navGym').classList.remove('active');
                         document.getElementById('navClock').classList.remove('active');
+                        document.getElementById('navPhoto').classList.remove('active');
                         document.getElementById('navComp').classList.remove('active');
                         document.getElementById('comp-tools').style.display = 'none';
 
@@ -583,6 +650,8 @@
                             document.getElementById('comp-tools').style.display = 'block';
                         } else if (data.viewMode === 'clock') {
                             document.getElementById('navClock').classList.add('active');
+                        } else if (data.viewMode === 'photo') {
+                            document.getElementById('navPhoto').classList.add('active');
                         } else {
                             document.getElementById('navGym').classList.add('active');
                         }
@@ -618,9 +687,11 @@
                         document.getElementById('aPenBlue').innerText = data.penBlue || 0;
                     }
 
+                    var sinSonido = (data.viewMode === 'clock' || data.viewMode === 'photo');
+
                     if (lastPhase !== '' && lastPhase !== data.fase) {
                         lastBeepedSec = -1;
-                        if (!isAdmin && data.estado === 'run' && data.viewMode !== 'clock') {
+                        if (!isAdmin && data.estado === 'run' && !sinSonido) {
                             sonidoFinalRonda();
                         }
                     }
@@ -637,7 +708,7 @@
                             var total = Math.round((data.fase === 'work' ? data.confWork : data.confRest) * 60);
                             var remaining = total - elapsed;
 
-                            if (!isAdmin && data.viewMode !== 'clock' && segAviso > 0) {
+                            if (!isAdmin && !sinSonido && segAviso > 0) {
                                 if (remaining <= segAviso && remaining > 0) {
                                     var cs = Math.ceil(remaining);
                                     if (cs !== lastBeepedSec) {
