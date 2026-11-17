@@ -391,10 +391,8 @@
         /* ████████████████████████████████████████████████████████████████████
            2. PANEL DE CONTROL DE TUS GIMNASIOS (EDITA SOLO ESTA ZONA)
            
-           - Enlace TV cliente:    tuweb.com/?gym=clave-cliente
-           - Enlace Móvil admin:   tuweb.com/?gym=clave-cliente&admin
-           - Logo vacío:           Deja "" si aún no tienes logo; cuando lo
-                                   tengas, pega el enlace directo .png o .jpg
+           - Enlace TV cliente:    https://crono26.vercel.app/?gym=clave-cliente
+           - Enlace Móvil admin:   https://crono26.vercel.app/?gym=clave-cliente&admin
            - Sonidos:              "clasico" | "bocina" | "campana"
            ████████████████████████████████████████████████████████████████████ */
         var GIMNASIOS = {
@@ -404,14 +402,14 @@
                 activo: true,
                 nombre: "patrick JIU-JITSU",
                 pinAdmin: "1234",
-                logoLucha: "",        "patrick.png" <-- PEGA AQUÍ EL ENLACE DE TU NUEVO LOGO CUANDO LO TENGAS
-                logoDescanso: "",     "patrick.png" <-- PEGA AQUÍ EL LOGO PARA EL DESCANSO (O EL MISMO ENLACE)
+                logoLucha: "patrick.png",
+                logoDescanso: "patrick.png",
                 colores: {
-                    acento: "#ff6600",        // Naranja
-                    fondoLucha: "#000000",    // Negro
-                    textoLucha: "#ffffff",    // Blanco
-                    fondoDescanso: "#ffffff", // Blanco
-                    textoDescanso: "#000000"  // Negro
+                    acento: "#ff6600",
+                    fondoLucha: "#000000",
+                    textoLucha: "#ffffff",
+                    fondoDescanso: "#ffffff",
+                    textoDescanso: "#000000"
                 },
                 sonido: "clasico",
                 segundosAviso: 10,
@@ -424,7 +422,7 @@
                 }
             },
 
-            // ---------------- EJEMPLO CLIENTE 1 (URL: https://crono26.vercel.app/?gym=12onzas) ----------------
+            // ---------------- CLIENTE 1 (URL: https://crono26.vercel.app/?gym=12onzas) ----------------
             "12onzas": {
                 activo: true,
                 nombre: "12 ONZAS MARTIAL ARTS ACADEMY",
@@ -449,7 +447,7 @@
                 }
             },
 
-            // ---------------- EJEMPLO CLIENTE 2 (URL: ?gym=cliente-bjj) ----------------
+            // ---------------- CLIENTE 2 (URL: https://crono26.vercel.app/?gym=cliente-bjj) ----------------
             "cliente-bjj": {
                 activo: true,
                 nombre: "ACADEMIA CLIENTE BJJ",
