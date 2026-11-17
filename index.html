@@ -393,7 +393,7 @@
            
            - Enlace TV cliente:    https://crono26.vercel.app/?gym=clave-cliente
            - Enlace Móvil admin:   https://crono26.vercel.app/?gym=clave-cliente&admin
-           - Sonidos:              "clasico" | "bocina" | "campana"
+           - Sonidos:              "clasico" | "bocina" | "campana" | "silbato" | "crossfit" | "gong" | "radar"
            ████████████████████████████████████████████████████████████████████ */
         var GIMNASIOS = {
 
@@ -448,7 +448,7 @@
             },
 
             // ---------------- CLIENTE 2 (URL: https://crono26.vercel.app/?gym=zion) ----------------
-            "cliente-bjj": {
+            "zion": {
                 activo: true,
                 nombre: "ZION BRAZILIAN JIUJITSU",
                 pinAdmin: "9012",
@@ -805,7 +805,8 @@
                         return currentData;
                     });
                 };
-/* MOTOR DE SONIDOS AGRESIVO (ALTA POTENCIA TV - 7 MODOS) */
+
+                /* MOTOR DE SONIDOS AGRESIVO (ALTA POTENCIA TV - 7 MODOS) */
                 function getMasterAudio() {
                     if (!window.globalAudioCtx) return null;
                     if (window.globalAudioCtx.state === 'suspended') {
@@ -1066,3 +1067,11 @@
                         tonoClasico(1.20, 0.54);
                     }
                 };
+
+            } catch (e) {
+                console.error("Error iniciando Firebase:", e);
+            }
+        }
+    </script>
+</body>
+</html>
